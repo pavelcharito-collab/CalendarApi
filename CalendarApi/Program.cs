@@ -1,4 +1,4 @@
-using CalendarApi.Domain;
+using CalendarApi.Domain.Abstractions;
 using CalendarApi.Infrastructure.Auth;
 using CalendarApi.Infrastructure.Http;
 using CalendarApi.Infrastructure.Persistence;

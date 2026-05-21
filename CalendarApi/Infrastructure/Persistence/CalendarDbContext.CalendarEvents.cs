@@ -1,4 +1,5 @@
 using CalendarApi.Domain;
+using CalendarApi.Domain.Abstractions;
 using CalendarApi.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -28,16 +29,12 @@ public partial class CalendarDbContext
         return q.AsAsyncEnumerable();
     }
 
-    public async Task<IReadOnlyList<CalendarEvent>> GetVisibleInRangeAsync(
-        Guid userId, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
-    {
-        var items = await CalendarEvents.AsNoTracking()
+    public IAsyncEnumerable<CalendarEvent> GetVisibleInRangeAsync(
+        Guid userId, DateTimeOffset from, DateTimeOffset to) =>
+        CalendarEvents.AsNoTracking()
             .FilterVisibleToUser(userId)
             .MayHaveInstancesInRange(from, to)
-            .ToListAsync(cancellationToken);
-
-        return items.OrderBy(e => e.Start).ToList();
-    }
+            .AsAsyncEnumerable();
 
     public async Task<bool> HasOverlapForParticipantAsync(
         Guid participantId, DateTimeOffset start, DateTimeOffset end,

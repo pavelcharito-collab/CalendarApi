@@ -1,4 +1,6 @@
+using System.Runtime.CompilerServices;
 using CalendarApi.Domain;
+using CalendarApi.Domain.Abstractions;
 using CalendarApi.Domain.Exceptions;
 using CalendarApi.Infrastructure.WebSockets;
 
@@ -90,25 +92,22 @@ public sealed class CalendarEventSchedulingService(
         return calendarEvents.ListAsync(s, t);
     }
 
-    public async Task<IReadOnlyList<EventInstance>> ListForUserInRangeAsync(
-        Guid callerId, Guid userId, DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default)
+    public async IAsyncEnumerable<EventInstance> ListForUserInRangeAsync(
+        Guid callerId, Guid userId, DateTimeOffset from, DateTimeOffset to,
+        [EnumeratorCancellation] CancellationToken ct = default)
     {
         if (callerId != userId)
         {
             throw new ForbiddenException("Cannot query another user's calendar.");
         }
-        var series = await calendarEvents.GetVisibleInRangeAsync(userId, from, to, ct);
-        var instances = new List<EventInstance>();
-        foreach (var s in series)
+        await foreach (var @event in calendarEvents.GetVisibleInRangeAsync(userId, from, to).WithCancellation(ct))
         {
-            foreach (var (start, end) in RecurrenceExpander.Expand(s, from, to))
+            foreach (var (start, end) in RecurrenceExpander.Expand(@event, from, to))
             {
-                instances.Add(new EventInstance(
-                    s.Id, s.Title, s.Description, s.OwnerId, start, end, s.ParticipantIds));
+                yield return new EventInstance(
+                    @event.Id, @event.Title, @event.Description, @event.OwnerId, start, end, @event.ParticipantIds);
             }
         }
-
-        return instances.OrderBy(i => i.Start).ToList();
     }
 
     private async Task<CalendarEvent> RequireOwnerAsync(Guid callerId, Guid eventId, CancellationToken ct)

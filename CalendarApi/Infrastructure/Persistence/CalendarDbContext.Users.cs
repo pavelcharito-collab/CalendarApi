@@ -1,4 +1,5 @@
 using CalendarApi.Domain;
+using CalendarApi.Domain.Abstractions;
 using Microsoft.EntityFrameworkCore;
 
 namespace CalendarApi.Infrastructure.Persistence;

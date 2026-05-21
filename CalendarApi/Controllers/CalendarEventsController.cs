@@ -135,8 +135,11 @@ public class CalendarEventsController(CalendarEventSchedulingService scheduling,
     public async Task<ActionResult<IReadOnlyList<EventInstanceResponse>>> ListForUser(
         Guid userId, [FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to, CancellationToken ct)
     {
-        var instances = await scheduling.ListForUserInRangeAsync(current.UserId, userId, from, to, ct);
-        
-        return Ok(instances.Select(DtoMapper.ToResponse).ToList());
+        var items = await scheduling.ListForUserInRangeAsync(current.UserId, userId, from, to, ct)
+            .OrderBy(i => i.Start)
+            .Select(DtoMapper.ToResponse)
+            .ToListAsync(ct);
+
+        return Ok(items);
     }
 }
