@@ -13,11 +13,9 @@ public partial class CalendarDbContext
 
     public void Remove(CalendarEvent calendarEvent) => CalendarEvents.Remove(calendarEvent);
 
-    async Task<(IReadOnlyList<CalendarEvent> Items, int Total)> ICalendarEventRepository.ListAsync(
-        int skip, int take, CancellationToken cancellationToken)
+    IAsyncEnumerable<CalendarEvent> ICalendarEventRepository.ListAsync(int skip, int take)
     {
         IQueryable<CalendarEvent> q = CalendarEvents.AsNoTracking().OrderByDescending(e => e.Id); //    .OrderBy(e => e.Start); //  SQLite does not support expressions of type 'DateTimeOffset' in ORDER BY clauses
-        var total = await q.CountAsync(cancellationToken);
         if (skip > 0)
         {
             q = q.Skip(skip);
@@ -26,9 +24,8 @@ public partial class CalendarDbContext
         {
             q = q.Take(take);
         }
-        var items = await q.ToListAsync(cancellationToken);
 
-        return (items, total);
+        return q.AsAsyncEnumerable();
     }
 
     public async Task<IReadOnlyList<CalendarEvent>> GetVisibleInRangeAsync(

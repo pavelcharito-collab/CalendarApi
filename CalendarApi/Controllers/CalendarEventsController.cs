@@ -36,14 +36,16 @@ public class CalendarEventsController(CalendarEventSchedulingService scheduling,
     /// </summary>
     /// <param name="take">Maximum rows to return; default <c>int.MaxValue</c> returns all events.</param>
     /// <param name="skip">Rows to skip; default <c>0</c>.</param>
-    /// <returns>Object with <c>total</c> count and <c>items</c> array.</returns>
+    /// <returns>Object with <c>count</c> and <c>items</c> array.</returns>
     /// <response code="200">Paged or full event list.</response>
     [HttpGet("events")]
-    public async Task<ActionResult<object>> List([FromQuery] int take = int.MaxValue, [FromQuery] int skip = 0, CancellationToken ct = default)
+    public async Task<ActionResult<EventListResponse>> List([FromQuery] int take = int.MaxValue, [FromQuery] int skip = 0, CancellationToken ct = default)
     {
-        var (items, total) = await scheduling.ListAllAsync(take, skip, ct);
+        var items = await scheduling.ListAllAsync(take, skip)
+            .Select(DtoMapper.ToResponse)
+            .ToListAsync(ct);
 
-        return Ok(new { total, items = items.Select(DtoMapper.ToResponse) });
+        return Ok(new EventListResponse (items.Count, items));
     }
 
     /// <summary>

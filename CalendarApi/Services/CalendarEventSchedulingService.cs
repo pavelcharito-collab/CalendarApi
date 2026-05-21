@@ -82,12 +82,12 @@ public sealed class CalendarEventSchedulingService(
         return calendarEvent;
     }
 
-    public async Task<(IReadOnlyList<CalendarEvent> Items, int Total)> ListAllAsync(
-        int take, int skip, CancellationToken ct = default)
+    public IAsyncEnumerable<CalendarEvent> ListAllAsync(
+        int take, int skip)
     {
         var (s, t) = Pagination.Normalize(take, skip);
 
-        return await calendarEvents.ListAsync(s, t, ct);
+        return calendarEvents.ListAsync(s, t);
     }
 
     public async Task<IReadOnlyList<EventInstance>> ListForUserInRangeAsync(

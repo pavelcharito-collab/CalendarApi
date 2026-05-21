@@ -1,16 +1,19 @@
 using CalendarApi.DTO;
-using CalendarApi.Infrastructure.Auth;
 using CalendarApi.Services;
+//using CalendarApi.Infrastructure.Auth;
+//using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Linq;
 
 namespace CalendarApi.Controllers;
 
 /// <summary>
 /// User registration and lookup under <c>api/v1/users</c>.
 /// </summary>
+/*[Authorize]*/
 [ApiController]
 [Route("api/v1/users")]
-public class UsersController(UserService users, ICurrentUserAccessor current) : ControllerBase
+public class UsersController(UserService users) : ControllerBase
 {
     /// <summary>
     /// Creates a new user.
@@ -38,7 +41,6 @@ public class UsersController(UserService users, ICurrentUserAccessor current) : 
     [HttpGet("{userId:guid}")]
     public async Task<ActionResult<UserResponse>> Get(Guid userId, CancellationToken ct)
     {
-        _ = current.UserId;
         var user = await users.GetAsync(userId, ct);
         
         return DtoMapper.ToResponse(user);
@@ -49,13 +51,15 @@ public class UsersController(UserService users, ICurrentUserAccessor current) : 
     /// </summary>
     /// <param name="take">Maximum rows to return; default <c>int.MaxValue</c> returns all users.</param>
     /// <param name="skip">Rows to skip; default <c>0</c>.</param>
-    /// <returns>Object with <c>total</c> count and <c>items</c> array.</returns>
+    /// <returns>Object with <c>count</c> and <c>items</c> array.</returns>
     /// <response code="200">Paged or full user list.</response>
     [HttpGet]
-    public async Task<ActionResult<object>> List([FromQuery] int take = int.MaxValue, [FromQuery] int skip = 0, CancellationToken ct = default)
+    public async Task<ActionResult<UserListResponse>> List([FromQuery] int take = int.MaxValue, [FromQuery] int skip = 0, CancellationToken ct = default)
     {
-        var (items, total) = await users.ListAsync(take, skip, ct);
-        
-        return Ok(new { total, items = items.Select(DtoMapper.ToResponse) });
+        var items = await users.ListAllAsync(take, skip)
+            .Select(DtoMapper.ToResponse)
+            .ToListAsync(ct);
+
+        return Ok(new UserListResponse(items.Count, items));
     }
 }

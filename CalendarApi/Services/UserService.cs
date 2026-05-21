@@ -21,10 +21,10 @@ public sealed class UserService(IUserRepository users, IUnitOfWork uow)
     public async Task<User> GetAsync(Guid id, CancellationToken ct = default) =>
         await users.GetByIdAsync(id, ct) ?? throw new NotFoundException("User not found.");
 
-    public async Task<(IReadOnlyList<User> Items, int Total)> ListAsync(int get, int skip, CancellationToken ct = default)
+    public IAsyncEnumerable<User> ListAllAsync(int take, int skip)
     {
-        var (s, t) = Pagination.Normalize(get, skip);
-        
-        return await users.ListAsync(s, t, ct);
+        var (s, t) = Pagination.Normalize(take, skip);
+
+        return users.ListAsync(s, t);
     }
 }

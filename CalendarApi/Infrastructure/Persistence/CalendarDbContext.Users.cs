@@ -10,11 +10,9 @@ public partial class CalendarDbContext
     public Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
 
-    async Task<(IReadOnlyList<User> Items, int Total)> IUserRepository.ListAsync(
-        int skip, int take, CancellationToken cancellationToken)
+    IAsyncEnumerable<User> IUserRepository.ListAsync(int skip, int take)
     {
         IQueryable<User> q = Users.AsNoTracking().OrderBy(u => u.Id);
-        var total = await q.CountAsync(cancellationToken);
         if (skip > 0)
         {
             q = q.Skip(skip);
@@ -23,8 +21,7 @@ public partial class CalendarDbContext
         {
             q = q.Take(take);
         }
-        var items = await q.ToListAsync(cancellationToken);
-        
-        return (items, total);
+
+        return q.AsAsyncEnumerable();
     }
 }
