@@ -1,29 +1,18 @@
 using CalendarApi.Domain;
+using Microsoft.EntityFrameworkCore;
 
 namespace CalendarApi.Infrastructure.Persistence;
 
 public static class CalendarEventQueries
 {
-    public static bool MayHaveInstancesInRange(CalendarEvent e, DateTimeOffset from, DateTimeOffset to) =>
-        e.Recurrence is null
-            ? e.Start < to && e.End > from
-            : e.Start < to && e.SeriesRangeEnd() > from;
-
-    private static bool ParticipantIdContains(CalendarEvent e, Guid userId)
+    extension(IQueryable<CalendarEvent> source)
     {
-        var marker = $",{userId},";
-        var csv = $",{string.Join(',', e.ParticipantIds)},";
-        return csv.Contains(marker, StringComparison.Ordinal);
-    }
+        public IQueryable<CalendarEvent> FilterVisibleToUser(Guid userId) =>
+            source.WhereIsParticipant(userId);
 
-    extension(IEnumerable<CalendarEvent> source)
-    {
-        public IEnumerable<CalendarEvent> FilterVisibleToUser(Guid userId) =>
-            source.Where(e => IsParticipant(e, userId));
-
-        public IEnumerable<CalendarEvent> FilterForParticipant(Guid participantId, Guid? excludeEventId = null)
+        public IQueryable<CalendarEvent> FilterForParticipant(Guid participantId, Guid? excludeEventId = null)
         {
-            var q = source.Where(e => IsParticipant(e, participantId));
+            var q = source.WhereIsParticipant(participantId);
             if (excludeEventId is not null)
             {
                 q = q.Where(e => e.Id != excludeEventId.Value);
@@ -31,8 +20,19 @@ public static class CalendarEventQueries
 
             return q;
         }
-    }
 
-    private static bool IsParticipant(CalendarEvent e, Guid userId) =>
-        e.OwnerId == userId || ParticipantIdContains(e, userId);
+        public IQueryable<CalendarEvent> MayHaveInstancesInRange(DateTimeOffset from, DateTimeOffset to) =>
+            source.Where(e => e.Recurrence == null
+                ? e.Start < to && e.End > from
+                : e.Start < to && (e.Recurrence.Until ?? e.Start.AddYears(2)) > from);
+
+        private IQueryable<CalendarEvent> WhereIsParticipant(Guid userId)
+        {
+            var pattern = $"%,{userId},%";
+            return source.Where(e => e.OwnerId == userId
+                                     || EF.Functions.Like(
+                                         "," + EF.Property<string>(e, nameof(CalendarEvent.ParticipantIds)) + ",",
+                                         pattern));
+        }
+    }
 }

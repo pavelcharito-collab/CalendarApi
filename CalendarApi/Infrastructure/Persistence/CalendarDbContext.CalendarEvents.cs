@@ -34,22 +34,30 @@ public partial class CalendarDbContext
     public async Task<IReadOnlyList<CalendarEvent>> GetVisibleInRangeAsync(
         Guid userId, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
     {
-        // todo kh this is not good, need join in db
-        var all = await CalendarEvents.AsNoTracking().ToListAsync(cancellationToken);
-        return all
+        var items = await CalendarEvents.AsNoTracking()
             .FilterVisibleToUser(userId)
-            .Where(e => CalendarEventQueries.MayHaveInstancesInRange(e, from, to))
-            .OrderBy(e => e.Start)
-            .ToList();
+            .MayHaveInstancesInRange(from, to)
+            .ToListAsync(cancellationToken);
+
+        return items.OrderBy(e => e.Start).ToList();
     }
 
     public async Task<bool> HasOverlapForParticipantAsync(
         Guid participantId, DateTimeOffset start, DateTimeOffset end,
         Guid? excludeEventId, CancellationToken cancellationToken = default)
     {
-        var candidates = await CalendarEvents.AsNoTracking().ToListAsync(cancellationToken);
-        return candidates
+        var candidates = CalendarEvents.AsNoTracking()
             .FilterForParticipant(participantId, excludeEventId)
-            .Any(e => RecurrenceExpander.Expand(e, start, end).Any());
+            .MayHaveInstancesInRange(start, end);
+
+        await foreach (var e in candidates.AsAsyncEnumerable().WithCancellation(cancellationToken))
+        {
+            if (RecurrenceExpander.Expand(e, start, end).Any())
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
