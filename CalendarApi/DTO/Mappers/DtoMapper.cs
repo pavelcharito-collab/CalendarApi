@@ -20,9 +20,9 @@ public static class DtoMapper
         if (dto is null) return null;
         if (!Enum.TryParse<RecurrenceFrequency>(dto.Frequency, ignoreCase: true, out var frequency))
         {
-            throw new Domain.Exceptions.DomainException($"Unknown recurrence frequency: {dto.Frequency}");
+            return null;
         }
-        
+
         return new RecurrencePattern
         {
             Frequency = frequency,

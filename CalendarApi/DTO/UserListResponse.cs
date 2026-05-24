@@ -1,3 +1,3 @@
 ﻿namespace CalendarApi.DTO;
 
-public record UserListResponse(int Count, IReadOnlyList<UserResponse> Items);
+public record UserListResponse(int TotalCount, int PageSize, IReadOnlyList<UserResponse> Items);

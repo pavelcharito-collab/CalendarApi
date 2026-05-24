@@ -12,12 +12,22 @@ public class CalendarEventConfiguration : IEntityTypeConfiguration<CalendarEvent
         builder.HasKey(e => e.Id);
         builder.Property(e => e.Title).HasMaxLength(500).IsRequired();
         builder.Property(e => e.Description).HasMaxLength(4000);
-        builder.Property(e => e.ParticipantIds)
+        builder.Property(e => e.SeriesEnd).IsRequired();
+        builder.Property<List<Guid>>("_participantIds")
+            .HasColumnName("ParticipantIds")
             .HasConversion(
                 v => string.Join(',', v),
                 v => string.IsNullOrEmpty(v)
                     ? new List<Guid>()
                     : v.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(Guid.Parse).ToList());
+        builder.Ignore(e => e.ParticipantIds);
+        builder.HasOne<User>()
+            .WithMany()
+            .HasForeignKey(e => e.OwnerId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(e => e.OwnerId);
+        builder.HasIndex(e => e.Start);
+        builder.HasIndex(e => e.SeriesEnd);
         builder.OwnsOne(e => e.Recurrence, r =>
         {
             r.Property(p => p.Frequency).HasConversion<string>();

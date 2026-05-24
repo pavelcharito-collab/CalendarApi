@@ -15,7 +15,7 @@ public sealed class UserService(IUserRepository users, IUnitOfWork uow)
         var user = User.Create(displayName);
         users.Add(user);
         await uow.SaveChangesAsync(ct);
-        
+
         return user;
     }
 
@@ -28,4 +28,7 @@ public sealed class UserService(IUserRepository users, IUnitOfWork uow)
 
         return users.ListAsync(s, t);
     }
+
+    public Task<int> CountAllAsync(CancellationToken ct = default) =>
+        users.CountAsync(ct);
 }

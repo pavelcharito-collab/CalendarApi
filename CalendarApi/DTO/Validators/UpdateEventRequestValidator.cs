@@ -11,5 +11,9 @@ public class UpdateEventRequestValidator : AbstractValidator<UpdateEventRequest>
         RuleFor(x => x.End).GreaterThan(x => x.Start);
         RuleFor(x => x.Recurrence!).SetValidator(new RecurrencePatternDtoValidator())
             .When(x => x.Recurrence is not null);
+        RuleFor(x => x)
+            .Must(x => x.Recurrence!.Until is null || x.Recurrence.Until >= x.Start)
+            .WithMessage("Recurrence Until must be on or after series start.")
+            .When(x => x.Recurrence?.Until is not null);
     }
 }

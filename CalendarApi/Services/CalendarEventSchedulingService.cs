@@ -17,7 +17,8 @@ public sealed record EventInstance(
 public sealed class CalendarEventSchedulingService(
     ICalendarEventRepository calendarEvents,
     IUserRepository users,
-    IUnitOfWork uow)
+    IUnitOfWork uow,
+    ILogger<CalendarEventSchedulingService> logger)
 {
     public async Task<CalendarEvent> CreateAsync(
         Guid callerId, string title, string description,
@@ -26,16 +27,18 @@ public sealed class CalendarEventSchedulingService(
     {
         _ = await users.GetByIdAsync(callerId, ct) ?? throw new NotFoundException("User not found.");
         var calendarEvent = CalendarEvent.Create(callerId, title, description, start, end, recurrence);
-        await EnsureNoConflictsAsync(calendarEvent, excludeEventId: null, ct);
-        calendarEvents.Add(calendarEvent);
-        await uow.SaveChangesAsync(ct);
+        await SaveWithConflictCheckAsync(async () =>
+        {
+            await EnsureNoConflictsAsync(calendarEvent, excludeEventId: null, ct);
+            calendarEvents.Add(calendarEvent);
+        }, ct);
 
         return calendarEvent;
     }
 
     public async Task<CalendarEvent> GetAsync(Guid callerId, Guid eventId, CancellationToken ct = default)
     {
-        var calendarEvent = await calendarEvents.GetByIdForUpdateAsync(eventId, ct);
+        var calendarEvent = await calendarEvents.GetByIdTrackedAsync(eventId, ct);
         if (calendarEvent is null)
         {
             throw new NotFoundException("Event not found.");
@@ -52,9 +55,11 @@ public sealed class CalendarEventSchedulingService(
         RecurrencePattern? recurrence, CancellationToken ct = default)
     {
         var calendarEvent = await RequireOwnerAsync(callerId, eventId, ct);
-        calendarEvent.Update(title, description, start, end, recurrence);
-        await EnsureNoConflictsAsync(calendarEvent, excludeEventId: eventId, ct);
-        await uow.SaveChangesAsync(ct);
+        await SaveWithConflictCheckAsync(async () =>
+        {
+            calendarEvent.Update(title, description, start, end, recurrence);
+            await EnsureNoConflictsAsync(calendarEvent, excludeEventId: eventId, ct);
+        }, ct);
 
         return calendarEvent;
     }
@@ -71,9 +76,11 @@ public sealed class CalendarEventSchedulingService(
     {
         var calendarEvent = await RequireOwnerAsync(callerId, eventId, ct);
         _ = await users.GetByIdAsync(inviteeId, ct) ?? throw new NotFoundException("Invitee not found.");
-        calendarEvent.AddParticipant(inviteeId);
-        await EnsureNoConflictsAsync(calendarEvent, excludeEventId: eventId, ct);
-        await uow.SaveChangesAsync(ct);
+        await SaveWithConflictCheckAsync(async () =>
+        {
+            calendarEvent.AddParticipant(inviteeId);
+            await EnsureNoConflictsAsync(calendarEvent, excludeEventId: eventId, ct);
+        }, ct);
 
         return calendarEvent;
     }
@@ -85,6 +92,9 @@ public sealed class CalendarEventSchedulingService(
 
         return calendarEvents.ListAsync(s, t);
     }
+
+    public Task<int> CountAllAsync(CancellationToken ct = default) =>
+        calendarEvents.CountAsync(ct);
 
     public async IAsyncEnumerable<EventInstance> ListForUserInRangeAsync(
         Guid callerId, Guid userId, DateTimeOffset from, DateTimeOffset to,
@@ -104,9 +114,17 @@ public sealed class CalendarEventSchedulingService(
         }
     }
 
+    private async Task SaveWithConflictCheckAsync(Func<Task> work, CancellationToken ct)
+    {
+        await using var tx = await uow.BeginTransactionAsync(ct);
+        await work();
+        await uow.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+    }
+
     private async Task<CalendarEvent> RequireOwnerAsync(Guid callerId, Guid eventId, CancellationToken ct)
     {
-        var calendarEvent = await calendarEvents.GetByIdForUpdateAsync(eventId, ct);
+        var calendarEvent = await calendarEvents.GetByIdTrackedAsync(eventId, ct);
         if (calendarEvent is null)
         {
             throw new NotFoundException("Event not found.");
@@ -121,15 +139,18 @@ public sealed class CalendarEventSchedulingService(
         CalendarEvent candidate, Guid? excludeEventId, CancellationToken ct)
     {
         var (checkFrom, checkTo) = ConflictWindow(candidate);
-        var instances = RecurrenceExpander.Expand(candidate, checkFrom, checkTo).ToList();
+        var instances = RecurrenceExpander.ExpandForConflictCheck(candidate, checkFrom, checkTo).ToList();
         foreach (var participantId in candidate.ParticipantIds.Distinct())
         {
             foreach (var (start, end) in instances)
             {
                 if (await calendarEvents.HasOverlapForParticipantAsync(participantId, start, end, excludeEventId, ct))
                 {
+                    logger.LogWarning(
+                        "Schedule conflict for participant {ParticipantId} between {Start:o} and {End:o}.",
+                        participantId, start, end);
                     throw new ScheduleConflictException(
-                        $"Schedule conflict for participant {participantId} between {start:o} and {end:o}.");
+                        "Schedule conflict for the requested time range.");
                 }
             }
         }

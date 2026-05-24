@@ -1,7 +1,9 @@
+using System.Data;
 using CalendarApi.Domain;
 using CalendarApi.Domain.Abstractions;
 using CalendarApi.Infrastructure.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace CalendarApi.Infrastructure.Persistence;
 
@@ -19,4 +21,18 @@ public partial class CalendarDbContext(DbContextOptions<CalendarDbContext> optio
 
     public new Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
         base.SaveChangesAsync(cancellationToken);
+
+    public async Task<IUnitOfWorkTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
+    {
+        var transaction = await Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        return new EfUnitOfWorkTransaction(transaction);
+    }
+
+    private sealed class EfUnitOfWorkTransaction(IDbContextTransaction transaction) : IUnitOfWorkTransaction
+    {
+        public Task CommitAsync(CancellationToken cancellationToken = default) =>
+            transaction.CommitAsync(cancellationToken);
+
+        public ValueTask DisposeAsync() => transaction.DisposeAsync();
+    }
 }

@@ -18,9 +18,8 @@ public sealed class DomainExceptionMiddleware(RequestDelegate next)
             {
                 NotFoundException => HttpStatusCode.NotFound,
                 ForbiddenException => HttpStatusCode.Forbidden,
+                UnauthorizedException => HttpStatusCode.Unauthorized,
                 ScheduleConflictException => HttpStatusCode.Conflict,
-                _ when ex.Message.Contains("X-User-Id", StringComparison.OrdinalIgnoreCase)
-                    => HttpStatusCode.Unauthorized,
                 _ => HttpStatusCode.BadRequest
             };
 

@@ -34,8 +34,7 @@ namespace CalendarApi.Migrations
                     b.Property<Guid>("OwnerId")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("ParticipantIds")
-                        .IsRequired()
+                    b.Property<DateTimeOffset>("SeriesEnd")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset>("Start")
@@ -46,7 +45,18 @@ namespace CalendarApi.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("_participantIds")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("ParticipantIds");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("OwnerId");
+
+                    b.HasIndex("SeriesEnd");
+
+                    b.HasIndex("Start");
 
                     b.ToTable("CalendarEvents", (string)null);
                 });
@@ -69,6 +79,12 @@ namespace CalendarApi.Migrations
 
             modelBuilder.Entity("CalendarApi.Domain.CalendarEvent", b =>
                 {
+                    b.HasOne("CalendarApi.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.OwnsOne("CalendarApi.Domain.RecurrencePattern", "Recurrence", b1 =>
                         {
                             b1.Property<Guid>("CalendarEventId")

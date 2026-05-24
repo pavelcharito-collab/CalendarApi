@@ -8,5 +8,5 @@ public sealed class CurrentUserAccessor(IHttpContextAccessor http) : ICurrentUse
         http.HttpContext?.Request.Headers.TryGetValue("X-User-Id", out var v) == true
         && Guid.TryParse(v.FirstOrDefault(), out var id)
             ? id
-            : throw new DomainException("Missing or invalid X-User-Id header.");
+            : throw new UnauthorizedException();
 }

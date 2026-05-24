@@ -9,10 +9,13 @@ public partial class CalendarDbContext
 {
     public void Add(CalendarEvent calendarEvent) => CalendarEvents.Add(calendarEvent);
 
-    public Task<CalendarEvent?> GetByIdForUpdateAsync(Guid id, CancellationToken cancellationToken = default) =>
+    public Task<CalendarEvent?> GetByIdTrackedAsync(Guid id, CancellationToken cancellationToken = default) =>
         CalendarEvents.FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
 
     public void Remove(CalendarEvent calendarEvent) => CalendarEvents.Remove(calendarEvent);
+
+    Task<int> ICalendarEventRepository.CountAsync(CancellationToken cancellationToken) =>
+        CalendarEvents.AsNoTracking().CountAsync(cancellationToken);
 
     IAsyncEnumerable<CalendarEvent> ICalendarEventRepository.ListAsync(int skip, int take)
     {
@@ -46,7 +49,7 @@ public partial class CalendarDbContext
 
         await foreach (var e in candidates.AsAsyncEnumerable().WithCancellation(cancellationToken))
         {
-            if (RecurrenceExpander.Expand(e, start, end).Any())
+            if (RecurrenceExpander.ExpandForConflictCheck(e, start, end).Any())
             {
                 return true;
             }

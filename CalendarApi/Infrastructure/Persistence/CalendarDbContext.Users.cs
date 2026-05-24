@@ -11,6 +11,9 @@ public partial class CalendarDbContext
     public Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
 
+    Task<int> IUserRepository.CountAsync(CancellationToken cancellationToken) =>
+        Users.AsNoTracking().CountAsync(cancellationToken);
+
     IAsyncEnumerable<User> IUserRepository.ListAsync(int skip, int take)
     {
         IQueryable<User> q = Users.AsNoTracking().OrderBy(u => u.Id);

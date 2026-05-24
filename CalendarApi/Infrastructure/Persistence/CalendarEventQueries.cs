@@ -24,14 +24,14 @@ public static class CalendarEventQueries
         public IQueryable<CalendarEvent> MayHaveInstancesInRange(DateTimeOffset from, DateTimeOffset to) =>
             source.Where(e => e.Recurrence == null
                 ? e.Start < to && e.End > from
-                : e.Start < to && (e.Recurrence.Until ?? e.Start.AddYears(2)) > from);
+                : e.Start < to && e.SeriesEnd > from);
 
         private IQueryable<CalendarEvent> WhereIsParticipant(Guid userId)
         {
             var pattern = $"%,{userId},%";
             return source.Where(e => e.OwnerId == userId
                                      || EF.Functions.Like(
-                                         "," + EF.Property<string>(e, nameof(CalendarEvent.ParticipantIds)) + ",",
+                                         "," + EF.Property<string>(e, "_participantIds") + ",",
                                          pattern));
         }
     }
