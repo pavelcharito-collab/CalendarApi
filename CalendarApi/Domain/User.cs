@@ -8,5 +8,5 @@ public class User
     private User() { }
 
     public static User Create(string displayName) =>
-        new() { Id = EntityIds.New(), DisplayName = displayName.Trim() };
+        new() { Id = Guid.CreateVersion7(), DisplayName = displayName.Trim() };
 }

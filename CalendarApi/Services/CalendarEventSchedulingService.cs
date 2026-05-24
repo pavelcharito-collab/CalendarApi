@@ -2,7 +2,6 @@ using System.Runtime.CompilerServices;
 using CalendarApi.Domain;
 using CalendarApi.Domain.Abstractions;
 using CalendarApi.Domain.Exceptions;
-using CalendarApi.Infrastructure.WebSockets;
 
 namespace CalendarApi.Services;
 
@@ -18,8 +17,7 @@ public sealed record EventInstance(
 public sealed class CalendarEventSchedulingService(
     ICalendarEventRepository calendarEvents,
     IUserRepository users,
-    IUnitOfWork uow,
-    CalendarChangeNotifier notifier)
+    IUnitOfWork uow)
 {
     public async Task<CalendarEvent> CreateAsync(
         Guid callerId, string title, string description,
@@ -31,8 +29,7 @@ public sealed class CalendarEventSchedulingService(
         await EnsureNoConflictsAsync(calendarEvent, excludeEventId: null, ct);
         calendarEvents.Add(calendarEvent);
         await uow.SaveChangesAsync(ct);
-        await NotifyChangeAsync(calendarEvent, "created", ct);
-        
+
         return calendarEvent;
     }
 
@@ -43,7 +40,7 @@ public sealed class CalendarEventSchedulingService(
         {
             throw new NotFoundException("Event not found.");
         }
-        
+
         return calendarEvent.IsVisibleTo(callerId)
             ? calendarEvent
             : throw new ForbiddenException("Event is not visible to this user.");
@@ -58,8 +55,7 @@ public sealed class CalendarEventSchedulingService(
         calendarEvent.Update(title, description, start, end, recurrence);
         await EnsureNoConflictsAsync(calendarEvent, excludeEventId: eventId, ct);
         await uow.SaveChangesAsync(ct);
-        await NotifyChangeAsync(calendarEvent, "updated", ct);
-        
+
         return calendarEvent;
     }
 
@@ -68,7 +64,6 @@ public sealed class CalendarEventSchedulingService(
         var calendarEvent = await RequireOwnerAsync(callerId, eventId, ct);
         calendarEvents.Remove(calendarEvent);
         await uow.SaveChangesAsync(ct);
-        await NotifyChangeAsync(calendarEvent, "deleted", ct);
     }
 
     public async Task<CalendarEvent> InviteAsync(
@@ -79,8 +74,7 @@ public sealed class CalendarEventSchedulingService(
         calendarEvent.AddParticipant(inviteeId);
         await EnsureNoConflictsAsync(calendarEvent, excludeEventId: eventId, ct);
         await uow.SaveChangesAsync(ct);
-        await NotifyChangeAsync(calendarEvent, "updated", ct);
-        
+
         return calendarEvent;
     }
 
@@ -117,7 +111,7 @@ public sealed class CalendarEventSchedulingService(
         {
             throw new NotFoundException("Event not found.");
         }
-        
+
         return calendarEvent.OwnerId == callerId
             ? calendarEvent
             : throw new ForbiddenException("Only the event owner can perform this action.");
@@ -143,10 +137,4 @@ public sealed class CalendarEventSchedulingService(
 
     private static (DateTimeOffset From, DateTimeOffset To) ConflictWindow(CalendarEvent e) =>
         (e.Start, e.SeriesRangeEnd());
-
-    private async Task NotifyChangeAsync(CalendarEvent calendarEvent, string action, CancellationToken ct)
-    {
-        var payload = new { action, eventId = calendarEvent.Id, userId = calendarEvent.OwnerId };
-        await notifier.NotifyParticipantsAsync(calendarEvent.ParticipantIds, payload, ct);
-    }
 }

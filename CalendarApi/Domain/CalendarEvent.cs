@@ -27,7 +27,7 @@ public class CalendarEvent
         recurrence?.Validate();
         return new CalendarEvent
         {
-            Id = EntityIds.New(),
+            Id = Guid.CreateVersion7(),
             OwnerId = ownerId,
             Title = title.Trim(),
             Description = description?.Trim() ?? "",

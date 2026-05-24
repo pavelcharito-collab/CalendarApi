@@ -2,7 +2,6 @@ using CalendarApi.Domain.Abstractions;
 using CalendarApi.Infrastructure.Auth;
 using CalendarApi.Infrastructure.Http;
 using CalendarApi.Infrastructure.Persistence;
-using CalendarApi.Infrastructure.WebSockets;
 using CalendarApi.Services;
 using FluentValidation;
 using FluentValidation.AspNetCore;
@@ -18,7 +17,6 @@ builder.Services.AddScoped<IUserRepository>(sp => sp.GetRequiredService<Calendar
 builder.Services.AddScoped<ICalendarEventRepository>(sp => sp.GetRequiredService<CalendarDbContext>());
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<CalendarEventSchedulingService>();
-builder.Services.AddSingleton<CalendarChangeNotifier>();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserAccessor, CurrentUserAccessor>();
@@ -37,9 +35,7 @@ using (var scope = app.Services.CreateScope())
     db.Database.Migrate();
 }
 
-app.UseWebSockets();
 app.UseMiddleware<DomainExceptionMiddleware>();
-app.UseMiddleware<CalendarSyncMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {

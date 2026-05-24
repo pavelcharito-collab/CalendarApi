@@ -1,16 +1,13 @@
 using CalendarApi.DTO;
+using CalendarApi.DTO.Mappers;
 using CalendarApi.Services;
-//using CalendarApi.Infrastructure.Auth;
-//using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Linq;
 
 namespace CalendarApi.Controllers;
 
 /// <summary>
 /// User registration and lookup under <c>api/v1/users</c>.
 /// </summary>
-/*[Authorize]*/
 [ApiController]
 [Route("api/v1/users")]
 public class UsersController(UserService users) : ControllerBase
